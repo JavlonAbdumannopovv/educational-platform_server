@@ -1,5 +1,6 @@
-import { Controller, Get, HttpCode } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Put, Query } from '@nestjs/common';
 import { Auth } from 'src/auth/decorators/auth.decorator';
+import { ApproveInstructorDto } from './admin.dto';
 import { AdminService } from './admin.service';
 
 @Controller('admin')
@@ -11,5 +12,26 @@ export class AdminController {
   @Auth('ADMIN')
   async getAllInstructors() {
     return this.adminService.getAllInstructors();
+  }
+
+  @HttpCode(200)
+  @Put('approve-instructor')
+  @Auth('ADMIN')
+  async aproveInstructor(@Body() body: ApproveInstructorDto) {
+    return this.adminService.aproveInstructor(body.instructorId);
+  }
+
+  @HttpCode(200)
+  @Put('delete-instructor')
+  @Auth('ADMIN')
+  async deleteInstructor(@Body() body: ApproveInstructorDto) {
+    return this.adminService.deleteIntructor(body.instructorId);
+  }
+
+  @HttpCode(200)
+  @Get('all-users')
+  @Auth('ADMIN')
+  async getAllUsers(@Query('limit') limit: string) {
+    return this.adminService.getAllUsers(Number(limit));
   }
 }
