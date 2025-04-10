@@ -49,3 +49,4 @@ export class AdminController {
     return this.adminService.deleteCourse(courseId);
   }
 }
+// Card, danger zone, transactions
