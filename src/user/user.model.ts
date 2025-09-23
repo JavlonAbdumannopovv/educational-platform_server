@@ -20,6 +20,12 @@ export class User {
 
   @Prop()
   avatar: string;
+
+  @Prop()
+  job: string;
+
+  @Prop()
+  createdAt: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
