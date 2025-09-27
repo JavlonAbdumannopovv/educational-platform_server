@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CreateReviewDto, EditReviewDto } from './dto/review.dto';
+import { CreateReviewDto, EditReviewDto, GetByUserDto } from './dto/review.dto';
 import { Review, ReviewDocument } from './review.model';
 
 @Injectable()
@@ -42,5 +42,12 @@ export class ReviewService {
     const review = await this.reviewModel.find({ course: courseId });
 
     return review;
+  }
+
+  async getByUser({course, author}: GetByUserDto) {
+    const reviews = await this.reviewModel.find({course}).exec();
+    const existReview = reviews.find(c => String(c.author) === author);
+
+    return existReview;
   }
 }
