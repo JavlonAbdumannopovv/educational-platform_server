@@ -5,6 +5,7 @@ import { Instructor, InstructorDocument } from 'src/instructor/instructor.model'
 import { User, UserDocument } from 'src/user/user.model';
 import { CourseBodyDto } from './coourse.dto';
 import { Course, CourseDocument } from './course.model';
+import { Review, ReviewDocument } from 'src/review/review.model';
 
 @Injectable()
 export class CourseService {
@@ -12,6 +13,7 @@ export class CourseService {
     @InjectModel(Course.name) private courseModel: Model<CourseDocument>,
     @InjectModel(Instructor.name) private instructorModel: Model<InstructorDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Review.name) private reviewModel: Model<ReviewDocument>,
   ) {}
 
   async createCourse(dto: CourseBodyDto, id: string) {
@@ -115,7 +117,7 @@ export class CourseService {
         },
         {
           $addFields: {
-            reivewCount: { $size: '$reviews' },
+            reviewCount: { $size: '$reviews' },
             reviewAvg: { $avg: '$reviews.rating' },
           },
         },
@@ -163,14 +165,14 @@ export class CourseService {
             exerpt: 1,
             language: 1,
             updatedAt: 1,
-            reivewCount: 1,
+            reviewCount: 1,
             reviewAvg: 1,
           },
         },
       ])
       .limit(Number(limit))
       .sort({ createdAt: -1 })
-      .exec()) as (CourseDocument & { reivewCount: number; reviewAvg: number })[];
+      .exec()) as (CourseDocument & { reviewCount: number; reviewAvg: number })[];
 
     return courses.map(course => this.getSpecificFieldCourse(course));
   }
@@ -180,12 +182,34 @@ export class CourseService {
       .findOne({ slug })
       .populate({ path: 'sections', populate: { path: 'lessons' } })
       .populate('author')
-      .exec()) as CourseDocument & { reivewCount: number; reviewAvg: number };
+      .exec()) as CourseDocument & { reviewCount: number; reviewAvg: number };
 
-    return this.getSpecificFieldCourse(course);
+    const reviews = await this.reviewModel.find({ course: course._id });
+    const avarage = this.getReviewAverage(reviews.map(c => c.rating));
+    const allStudents = await this.userModel.find({ courses: course._id });
+
+    return {
+      ...this.getSpecificFieldCourse(course),
+      reviewCount: reviews.length,
+      reviewAvg: avarage,
+      allStudents: allStudents.length,
+    };
   }
 
-  getSpecificFieldCourse(course: CourseDocument & { reivewCount: number; reviewAvg: number }) {
+  getReviewAverage(ratingArr: number[]) {
+    if (ratingArr.length === 0) {
+      return 5;
+    }
+
+    if (ratingArr.length === 1) {
+      return ratingArr[0];
+    }
+
+    const sum = ratingArr.reduce((prev, next) => prev + next, 0);
+    return sum / ratingArr.length;
+  }
+
+  getSpecificFieldCourse(course: CourseDocument & { reviewCount: number; reviewAvg: number }) {
     return {
       title: course.title,
       previewImage: course.previewImage,
@@ -207,7 +231,7 @@ export class CourseService {
       language: course.language,
       exerpt: course.exerpt,
       slug: course.slug,
-      reivewCount: course.reivewCount,
+      reviewCount: course.reviewCount,
       reviewAvg: course.reviewAvg,
     };
   }
