@@ -37,10 +37,11 @@ export class UserService {
 
   async updateUser(userId: string, dto: UpdateUserDto) {
     const { firstName, lastName, bio, birthday, avatar, job } = dto;
+    const fullName = `${firstName} ${lastName}`;
     const user = await this.userModel.findByIdAndUpdate(
       userId,
       {
-        $set: { fullName: firstName + lastName, bio, birthday, avatar, job },
+        $set: { fullName, bio, birthday, avatar, job },
       },
       { new: true },
     );

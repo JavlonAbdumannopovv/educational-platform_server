@@ -90,6 +90,10 @@ export class AuthService {
       avatar: user.avatar,
       role: user.role,
       courses: user.courses,
+      createdAt: user.createdAt,
+      job: user.job,
+      birthday: user.birthday,
+      bio: user.bio,
     };
   }
 }
