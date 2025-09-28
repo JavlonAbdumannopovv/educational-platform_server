@@ -30,6 +30,12 @@ export class User {
 
   @Prop([{ type: SchemaMS.Types.ObjectId, ref: 'Course' }])
   courses: Course[];
+
+  @Prop()
+  bio: string;
+
+  @Prop()
+  birthday: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
