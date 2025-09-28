@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { genSalt, hash } from 'bcryptjs';
+import { compare, genSalt, hash } from 'bcryptjs';
 import { Model } from 'mongoose';
-import { InterfaceEmailAndPassword, UpdateUserDto } from './user.interface';
+import { InterfaceEmailAndPassword, UpdateUserDto, UserChangePasswordDto } from './user.interface';
 import { User, UserDocument } from './user.model';
 
 @Injectable()
@@ -53,5 +58,27 @@ export class UserService {
     const user = await this.userModel.findById(userId).populate('courses').exec();
 
     return user.courses;
+  }
+
+  async changePassword(userId: string, dto: UserChangePasswordDto) {
+    const user = await this.userModel.findById(userId);
+
+    if (dto.oldPassword.length) {
+      const currentPassword = await compare(dto.oldPassword, user.password);
+      if (!currentPassword) throw new BadRequestException('incorrect_password');
+    }
+
+    const salt = await genSalt(10);
+    const hashPassword = await hash(dto.newPassword, salt);
+
+    await this.userModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: { password: hashPassword },
+      },
+      { new: true },
+    );
+
+    return 'Success';
   }
 }

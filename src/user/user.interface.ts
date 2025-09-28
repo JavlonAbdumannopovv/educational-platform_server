@@ -8,12 +8,17 @@ export interface InterfaceEmailAndPassword {
   password: string;
 }
 
-
 export class UpdateUserDto {
   firstName: string;
   lastName: string;
   birthday: string;
   job: string;
-  bio: string;
+  bio: string;  
   avatar: string;
+}
+
+export class UserChangePasswordDto {
+  oldPassword: string;
+  newPassword: string;
+  callback: () => void;
 }

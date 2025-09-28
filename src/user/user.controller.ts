@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Put } from '@nestjs/common';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { User } from './decorators/user.decorator';
-import { InterfaceEmailAndPassword, UpdateUserDto } from './user.interface';
+import { InterfaceEmailAndPassword, UpdateUserDto, UserChangePasswordDto } from './user.interface';
 import { UserService } from './user.service';
 
 @Controller('user')
@@ -33,6 +33,15 @@ export class UserController {
   @Auth()
   async myCourses(@User('_id') _id: string) {
     const response = await this.userService.myCourses(_id);
+    return response;
+  }
+
+  @HttpCode(200)
+  @Put('change-password')
+  @Auth()
+  async changePassword(@User('_id') _id: string, @Body() dto: UserChangePasswordDto) {
+    const response = await this.userService.changePassword(_id, dto);
+    
     return response;
   }
 }
