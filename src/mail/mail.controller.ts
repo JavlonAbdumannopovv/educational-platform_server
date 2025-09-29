@@ -16,4 +16,10 @@ export class MailController {
   async verifyOtp(@Body() dto: { email: string; otpVerification: string }) {
     return this.mailService.verifyOtp(dto.email, dto.otpVerification);
   }
+
+  @HttpCode(200)
+  @Post('contact-us')
+  async contactUs(@Body() dto: { email: string; name: string; message: string }) {
+    return this.mailService.contactUs(dto);
+  }
 }

@@ -104,4 +104,19 @@ export class MailService {
 
     return 'Success';
   }
+
+  async contactUs(dto: { email: string; name: string; message: string }) {
+    await this.transporter.sendMail({
+      from: `${dto.email}`,
+      to: 'javlonabdumannopovv@gmail.com',
+      subject: `DigitalUzb | Contact Us`,
+      html: `
+        <div>Name: ${dto.name}</div>
+        <div>Email: ${dto.email}</div>
+        <div>Message: ${dto.message}</div>
+      `,
+    });
+
+    return dto.email;
+  }
 }
