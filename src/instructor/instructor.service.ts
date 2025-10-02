@@ -38,7 +38,13 @@ export class InstructorService {
     if (existInstructor)
       throw new BadRequestException('Instructor with that email already exist in our system');
 
-    await this.instructorModel.create(data);
+    const instructor = await this.instructorModel.create(data);
+
+    if (instructor) {
+      await this.userModel.findByIdAndUpdate(user._id, {
+        $set: { instructorId: instructor._id },
+      });
+    }
 
     return 'Success';
   }
@@ -49,6 +55,24 @@ export class InstructorService {
 
   async getDetailedCourse(slug: string) {
     return await this.courseModel.findOne({ slug });
+  }
+
+  async getStudents(userId: string, limit: string) {
+    const instructor = await this.instructorModel
+      .findOne({author: userId})
+      .populate('students')
+      .limit(Number(limit))
+      .exec();
+
+    return instructor.students.map(student => this.getSpecificFieldStudents(student));
+  }
+
+  getSpecificFieldStudents(student) {
+    return {
+      email: student.email,
+      createdAt: student.createdAt,
+      coursesCount: student.courses.length,
+    };
   }
 
   async getInstructors(language: string, limit: string) {

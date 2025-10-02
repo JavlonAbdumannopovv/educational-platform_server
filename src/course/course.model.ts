@@ -13,6 +13,9 @@ export class Course {
   @Prop([{ type: SchemaMS.Types.ObjectId, ref: 'Section' }])
   sections: Section[];
 
+  @Prop([{ type: SchemaMS.Types.ObjectId, ref: 'User' }])
+  students: User[];
+
   @Prop({ unique: true, required: true })
   slug: string;
 

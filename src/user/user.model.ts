@@ -20,6 +20,9 @@ export class User {
   role: RoleUser;
 
   @Prop()
+  instructorId: string;
+
+  @Prop()
   avatar: string;
 
   @Prop()

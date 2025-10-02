@@ -26,7 +26,8 @@ export class CourseService {
         .replace(/^-+|-+$/g, '');
 
     const slug = slugify(dto.title);
-    const course = await this.courseModel.create({ ...dto, slug: slug, author: id });
+    const user = await this.userModel.findById(id);
+    const course = await this.courseModel.create({ ...dto, slug: slug, author: user.instructorId });
     await this.instructorModel.findOneAndUpdate(
       { author: id },
       { $push: { courses: course._id } },
@@ -266,7 +267,18 @@ export class CourseService {
 
   async enrollUser(userID: string, courseId: string) {
     await this.userModel.findByIdAndUpdate(userID, { $push: { courses: courseId } }, { new: true });
-
+    const course = await this.courseModel.findByIdAndUpdate(
+      courseId,
+      { $push: { students: userID } },
+      { new: true },
+    );
+    await this.instructorModel.findByIdAndUpdate(
+      course.author,
+      {
+        $push: { students: userID },
+      },
+      { new: true },
+    );
     return 'Success';
   }
 }
