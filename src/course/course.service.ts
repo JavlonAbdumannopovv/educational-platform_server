@@ -26,8 +26,7 @@ export class CourseService {
         .replace(/^-+|-+$/g, '');
 
     const slug = slugify(dto.title);
-    const user = await this.userModel.findById(id);
-    const course = await this.courseModel.create({ ...dto, slug: slug, author: user.instructorId });
+    const course = await this.courseModel.create({ ...dto, slug: slug, author: id });
     await this.instructorModel.findOneAndUpdate(
       { author: id },
       { $push: { courses: course._id } },
@@ -81,16 +80,9 @@ export class CourseService {
   async getCourses(language: string, limit: string) {
     const courses = (await this.courseModel
       .aggregate([
+        { $match: { language } },
         {
-          $match: { language },
-        },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'author',
-            foreignField: '_id',
-            as: 'author',
-          },
+          $lookup: { from: 'users', localField: 'author', foreignField: '_id', as: 'author' },
         },
         {
           $lookup: {
@@ -108,23 +100,14 @@ export class CourseService {
             as: 'lessons',
           },
         },
-        {
-          $lookup: {
-            from: 'reviews',
-            localField: '_id',
-            foreignField: 'course',
-            as: 'reviews',
-          },
-        },
+        { $lookup: { from: 'reviews', localField: '_id', foreignField: 'course', as: 'reviews' } },
         {
           $addFields: {
             reviewCount: { $size: '$reviews' },
             reviewAvg: { $avg: '$reviews.rating' },
           },
         },
-        {
-          $unwind: '$author',
-        },
+        { $unwind: '$author' },
         {
           $project: {
             _id: 1,
@@ -168,13 +151,13 @@ export class CourseService {
             updatedAt: 1,
             reviewCount: 1,
             reviewAvg: 1,
+            students: 1,
           },
         },
       ])
       .limit(Number(limit))
       .sort({ createdAt: -1 })
       .exec()) as (CourseDocument & { reviewCount: number; reviewAvg: number })[];
-
     return courses.map(course => this.getSpecificFieldCourse(course));
   }
 
@@ -234,6 +217,7 @@ export class CourseService {
       slug: course.slug,
       reviewCount: course.reviewCount,
       reviewAvg: course.reviewAvg,
+      students: course.students,
     };
   }
 
@@ -267,13 +251,13 @@ export class CourseService {
 
   async enrollUser(userID: string, courseId: string) {
     await this.userModel.findByIdAndUpdate(userID, { $push: { courses: courseId } }, { new: true });
-    const course = await this.courseModel.findByIdAndUpdate(
+    await this.courseModel.findByIdAndUpdate(
       courseId,
       { $push: { students: userID } },
       { new: true },
     );
-    await this.instructorModel.findByIdAndUpdate(
-      course.author,
+    await this.instructorModel.findOneAndUpdate(
+      { author: userID },
       {
         $push: { students: userID },
       },
