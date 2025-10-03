@@ -165,15 +165,16 @@ export class CourseService {
     const course = (await this.courseModel
       .findOne({ slug })
       .populate({ path: 'sections', populate: { path: 'lessons' } })
-      .populate('author')
+      .populate({ path: 'author', populate: { path: 'instructorId' } })
       .exec()) as CourseDocument & { reviewCount: number; reviewAvg: number };
 
     const reviews = await this.reviewModel.find({ course: course._id });
     const avarage = this.getReviewAverage(reviews.map(c => c.rating));
     const allStudents = await this.userModel.find({ courses: course._id });
+    const instructor = await this.instructorModel.findById(course.author.instructorId);
 
     return {
-      ...this.getSpecificFieldCourse(course),
+      ...this.getSpecificFieldCourse(course, instructor.students),
       reviewCount: reviews.length,
       reviewAvg: avarage,
       allStudents: allStudents.length,
@@ -193,7 +194,10 @@ export class CourseService {
     return sum / ratingArr.length;
   }
 
-  getSpecificFieldCourse(course: CourseDocument & { reviewCount: number; reviewAvg: number }) {
+  getSpecificFieldCourse(
+    course: CourseDocument & { reviewCount: number; reviewAvg: number },
+    students?,
+  ) {
     return {
       title: course.title,
       previewImage: course.previewImage,
@@ -205,6 +209,7 @@ export class CourseService {
         fullName: course.author.fullName,
         avatar: course.author.avatar,
         job: course.author.job,
+        students: students ? students : [],
       },
       lessonCount: course.sections.map(c => c.lessons.length).reduce((a, b) => +a + +b, 0),
       totalHour: this.getTotalHours(course),
@@ -246,7 +251,7 @@ export class CourseService {
   }
 
   async getAdminCourses() {
-    return this.courseModel.find().exec();
+    return this.courseModel.find().populate("author").exec();
   }
 
   async enrollUser(userID: string, courseId: string) {

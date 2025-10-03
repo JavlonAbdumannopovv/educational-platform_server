@@ -83,6 +83,7 @@ export class AdminService {
       { new: true },
     );
     await this.courseModel.findByIdAndRemove(courseId, { new: true }).exec();
+    await this.userModel.findOneAndUpdate({ courses: courseId }, { $pull: { courses: courseId } });
     const courses = await this.courseModel.find().exec();
     return courses.map(course => this.getSpecificFieldCourse(course));
   }

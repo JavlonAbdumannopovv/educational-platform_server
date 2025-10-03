@@ -39,13 +39,13 @@ export class ReviewService {
   }
 
   async getReview(courseId: string) {
-    const review = await this.reviewModel.find({ course: courseId });
+    const review = await this.reviewModel.find({ course: courseId }).populate('author');
 
     return review;
   }
 
-  async getByUser({course, author}: GetByUserDto) {
-    const reviews = await this.reviewModel.find({course}).exec();
+  async getByUser({ course, author }: GetByUserDto) {
+    const reviews = await this.reviewModel.find({ course }).exec();
     const existReview = reviews.find(c => String(c.author) === author);
 
     return existReview;
