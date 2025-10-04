@@ -36,8 +36,14 @@ export class InstructorController {
 
   @HttpCode(200)
   @Get('students')
-  @Auth("INSTRUCTOR")
+  @Auth('INSTRUCTOR')
   async getStudents(@User('_id') userId: string, @Query('limit') limit: string) {
     return this.instructorService.getStudents(userId, limit);
+  }
+
+  @HttpCode(200)
+  @Get('detailed/:instructorId')
+  async getDetailedInstructor(@Param('instructorId') instructorId: string) {
+    return this.instructorService.getDetailedInstructor(instructorId);
   }
 }

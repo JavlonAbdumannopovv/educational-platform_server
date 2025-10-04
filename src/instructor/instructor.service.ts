@@ -59,7 +59,7 @@ export class InstructorService {
 
   async getStudents(userId: string, limit: string) {
     const instructor = await this.instructorModel
-      .findOne({author: userId})
+      .findOne({ author: userId })
       .populate('students')
       .limit(Number(limit))
       .exec();
@@ -86,12 +86,25 @@ export class InstructorService {
     return instructors.map(instructor => this.getSpecificFieldInstructor(instructor));
   }
 
+  async getDetailedInstructor(instructorId: string) {
+    const instructor = await this.instructorModel
+      .findById(instructorId)
+      .populate('author')
+      .populate('courses');
+
+    return this.getSpecificFieldInstructor(instructor);
+  }
+
   getSpecificFieldInstructor(instructor: InstructorDocument) {
     return {
+      _id: instructor._id,
+      author: instructor.author,
       avatar: instructor.author.avatar,
       fullName: instructor.author.fullName,
       totalCourses: instructor.courses.length,
       job: instructor.author.job,
+      studentsCount: instructor.students.length,
+      courses: instructor.courses,
     };
   }
 }
