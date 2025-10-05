@@ -50,7 +50,177 @@ export class InstructorService {
   }
 
   async getAllCourses(author: string) {
-    return await this.courseModel.find({ author });
+    const courses = (await this.courseModel
+      .aggregate([
+        { $match: { author } },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'author',
+            foreignField: '_id',
+            as: 'author',
+          },
+        },
+        {
+          $lookup: {
+            from: 'sections',
+            localField: 'sections',
+            foreignField: '_id',
+            as: 'sections',
+            pipeline: [
+              {
+                $lookup: {
+                  from: 'lessons',
+                  localField: 'lessons',
+                  foreignField: '_id',
+                  as: 'lessons',
+                },
+              },
+              {
+                $project: {
+                  _id: 1,
+                  title: 1,
+                  lessons: {
+                    _id: 1,
+                    name: 1,
+                    minute: 1,
+                    second: 1,
+                    hour: 1,
+                  },
+                },
+              },
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: 'reviews',
+            localField: '_id',
+            foreignField: 'course',
+            as: 'reviews',
+          },
+        },
+        {
+          $addFields: {
+            reviewCount: { $size: '$reviews' },
+            reviewAvg: { $avg: '$reviews.rating' },
+          },
+        },
+        { $unwind: '$author' },
+        {
+          $project: {
+            _id: 1,
+            author: 1,
+            sections: {
+              $map: {
+                input: { $ifNull: ['$sections', []] },
+                as: 'section',
+                in: {
+                  _id: '$$section._id',
+                  title: '$$section.title',
+                  lessons: {
+                    $map: {
+                      input: { $ifNull: ['$$section.lessons', []] },
+                      as: 'lesson',
+                      in: {
+                        _id: '$$lesson._id',
+                        name: '$$lesson.name',
+                        minute: '$$lesson.minute',
+                        second: '$$lesson.second',
+                        hour: '$$lesson.hour',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            slug: 1,
+            isActive: 1,
+            learn: 1,
+            requirements: 1,
+            tags: 1,
+            description: 1,
+            level: 1,
+            category: 1,
+            price: 1,
+            previewImage: 1,
+            title: 1,
+            exerpt: 1,
+            language: 1,
+            updatedAt: 1,
+            reviewCount: 1,
+            reviewAvg: 1,
+            students: 1,
+          },
+        },
+      ])
+      .sort({ createdAt: -1 })
+      .exec()) as (CourseDocument & { reviewCount: number; reviewAvg: number })[];
+
+    return courses.map(course => this.getSpecificFieldCourse(course));
+  }
+
+  getReviewAverage(ratingArr: number[]) {
+    if (!ratingArr?.length) return 5;
+    if (ratingArr.length === 1) return ratingArr[0];
+    const sum = ratingArr.reduce((prev, next) => prev + next, 0);
+    return sum / ratingArr.length;
+  }
+
+  getSpecificFieldCourse(
+    course: CourseDocument & { reviewCount: number; reviewAvg: number },
+    students?,
+  ) {
+    const sections = course.sections || [];
+    const lessonCount = sections
+      .map(s => (s.lessons ? s.lessons.length : 0))
+      .reduce((a, b) => a + b, 0);
+
+    return {
+      title: course.title,
+      previewImage: course.previewImage,
+      price: course.price,
+      level: course.level,
+      category: course.category,
+      _id: course._id,
+      author: {
+        fullName: course.author.fullName,
+        avatar: course.author.avatar,
+        job: course.author.job,
+        students: students || [],
+      },
+      lessonCount,
+      totalHour: this.getTotalHours(course),
+      updatedAt: course.updatedAt,
+      learn: course.learn,
+      requirements: course.requirements,
+      description: course.description,
+      language: course.language,
+      exerpt: course.exerpt,
+      slug: course.slug,
+      reviewCount: course.reviewCount,
+      reviewAvg: course.reviewAvg,
+      students: course.students,
+      isActive: course.isActive,
+    };
+  }
+
+  getTotalHours(course: CourseDocument) {
+    const sections = course.sections || [];
+    let totalHour = 0;
+
+    for (const section of sections) {
+      const lessons = section.lessons || [];
+      for (const lesson of lessons) {
+        const h = parseInt(String(lesson.hour || 0));
+        const m = parseInt(String(lesson.minute || 0));
+        const s = parseInt(String(lesson.second || 0));
+        const totalSeconds = h * 3600 + m * 60 + s;
+        totalHour += totalSeconds / 3600;
+      }
+    }
+
+    return totalHour.toFixed(1);
   }
 
   async getDetailedCourse(slug: string) {

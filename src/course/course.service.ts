@@ -80,9 +80,14 @@ export class CourseService {
   async getCourses(language: string, limit: string) {
     const courses = (await this.courseModel
       .aggregate([
-        { $match: { language } },
+        { $match: { language, isActive: true } },
         {
-          $lookup: { from: 'users', localField: 'author', foreignField: '_id', as: 'author' },
+          $lookup: {
+            from: 'users',
+            localField: 'author',
+            foreignField: '_id',
+            as: 'author',
+          },
         },
         {
           $lookup: {
@@ -90,17 +95,39 @@ export class CourseService {
             localField: 'sections',
             foreignField: '_id',
             as: 'sections',
+            pipeline: [
+              {
+                $lookup: {
+                  from: 'lessons',
+                  localField: 'lessons',
+                  foreignField: '_id',
+                  as: 'lessons',
+                },
+              },
+              {
+                $project: {
+                  _id: 1,
+                  title: 1,
+                  lessons: {
+                    _id: 1,
+                    name: 1,
+                    minute: 1,
+                    second: 1,
+                    hour: 1,
+                  },
+                },
+              },
+            ],
           },
         },
         {
           $lookup: {
-            from: 'lessons',
-            localField: 'sections.lessons',
-            foreignField: '_id',
-            as: 'lessons',
+            from: 'reviews',
+            localField: '_id',
+            foreignField: 'course',
+            as: 'reviews',
           },
         },
-        { $lookup: { from: 'reviews', localField: '_id', foreignField: 'course', as: 'reviews' } },
         {
           $addFields: {
             reviewCount: { $size: '$reviews' },
@@ -114,14 +141,14 @@ export class CourseService {
             author: 1,
             sections: {
               $map: {
-                input: '$sections',
+                input: { $ifNull: ['$sections', []] },
                 as: 'section',
                 in: {
                   _id: '$$section._id',
                   title: '$$section.title',
                   lessons: {
                     $map: {
-                      input: '$lessons',
+                      input: { $ifNull: ['$$section.lessons', []] },
                       as: 'lesson',
                       in: {
                         _id: '$$lesson._id',
@@ -158,7 +185,70 @@ export class CourseService {
       .limit(Number(limit))
       .sort({ createdAt: -1 })
       .exec()) as (CourseDocument & { reviewCount: number; reviewAvg: number })[];
+
     return courses.map(course => this.getSpecificFieldCourse(course));
+  }
+
+  getReviewAverage(ratingArr: number[]) {
+    if (!ratingArr?.length) return 5;
+    if (ratingArr.length === 1) return ratingArr[0];
+    const sum = ratingArr.reduce((prev, next) => prev + next, 0);
+    return sum / ratingArr.length;
+  }
+
+  getSpecificFieldCourse(
+    course: CourseDocument & { reviewCount: number; reviewAvg: number },
+    students?,
+  ) {
+    const sections = course.sections || [];
+    const lessonCount = sections
+      .map(s => (s.lessons ? s.lessons.length : 0))
+      .reduce((a, b) => a + b, 0);
+
+    return {
+      title: course.title,
+      previewImage: course.previewImage,
+      price: course.price,
+      level: course.level,
+      category: course.category,
+      _id: course._id,
+      author: {
+        fullName: course.author.fullName,
+        avatar: course.author.avatar,
+        job: course.author.job,
+        students: students || [],
+      },
+      lessonCount,
+      totalHour: this.getTotalHours(course),
+      updatedAt: course.updatedAt,
+      learn: course.learn,
+      requirements: course.requirements,
+      description: course.description,
+      language: course.language,
+      exerpt: course.exerpt,
+      slug: course.slug,
+      reviewCount: course.reviewCount,
+      reviewAvg: course.reviewAvg,
+      students: course.students,
+    };
+  }
+
+  getTotalHours(course: CourseDocument) {
+    const sections = course.sections || [];
+    let totalHour = 0;
+
+    for (const section of sections) {
+      const lessons = section.lessons || [];
+      for (const lesson of lessons) {
+        const h = parseInt(String(lesson.hour || 0));
+        const m = parseInt(String(lesson.minute || 0));
+        const s = parseInt(String(lesson.second || 0));
+        const totalSeconds = h * 3600 + m * 60 + s;
+        totalHour += totalSeconds / 3600;
+      }
+    }
+
+    return totalHour.toFixed(1);
   }
 
   async getDetailedCourse(slug: string) {
@@ -181,77 +271,8 @@ export class CourseService {
     };
   }
 
-  getReviewAverage(ratingArr: number[]) {
-    if (ratingArr.length === 0) {
-      return 5;
-    }
-
-    if (ratingArr.length === 1) {
-      return ratingArr[0];
-    }
-
-    const sum = ratingArr.reduce((prev, next) => prev + next, 0);
-    return sum / ratingArr.length;
-  }
-
-  getSpecificFieldCourse(
-    course: CourseDocument & { reviewCount: number; reviewAvg: number },
-    students?,
-  ) {
-    return {
-      title: course.title,
-      previewImage: course.previewImage,
-      price: course.price,
-      level: course.level,
-      category: course.category,
-      _id: course._id,
-      author: {
-        fullName: course.author.fullName,
-        avatar: course.author.avatar,
-        job: course.author.job,
-        students: students ? students : [],
-      },
-      lessonCount: course.sections.map(c => c.lessons.length).reduce((a, b) => +a + +b, 0),
-      totalHour: this.getTotalHours(course),
-      updatedAt: course.updatedAt,
-      learn: course.learn,
-      requirements: course.requirements,
-      description: course.description,
-      language: course.language,
-      exerpt: course.exerpt,
-      slug: course.slug,
-      reviewCount: course.reviewCount,
-      reviewAvg: course.reviewAvg,
-      students: course.students,
-    };
-  }
-
-  getTotalHours(course: CourseDocument) {
-    let totalHour = 0;
-
-    for (let s = 0; s < course.sections.length; s++) {
-      const section = course.sections[s];
-      let sectionHour = 0;
-
-      for (let l = 0; l < section.lessons.length; l++) {
-        const lesson = section.lessons[l];
-        const hours = parseInt(String(lesson.hour));
-        const seconds = parseInt(String(lesson.second));
-        const minutes = parseInt(String(lesson.minute));
-        const totalMinutes = hours * 60 + minutes;
-        const totalSeconds = totalMinutes * 60 + seconds;
-        const totalHourLesson = totalSeconds / 3600;
-        sectionHour += totalHourLesson;
-      }
-
-      totalHour += sectionHour;
-    }
-
-    return totalHour.toFixed(1);
-  }
-
   async getAdminCourses() {
-    return this.courseModel.find().populate("author").exec();
+    return this.courseModel.find().populate('author').exec();
   }
 
   async enrollUser(userID: string, courseId: string) {
